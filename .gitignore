@@ -1,0 +1,26 @@
+# Received runtime and secret material (the original ZIP files remain preserved)
+received/**/.env
+received/**/session/
+received/**/src/session/
+received/**/__pycache__/
+received/**/*.pyc
+received/**/crash.log
+received/telegram-client/src/downloads/
+# assets.zip contains a live Telegram session, downloaded private media, and a
+# plaintext environment file. It remains preserved locally but must not be published.
+assets.zip
+# This received deployment helper contains a historical service-role credential.
+# The untouched original remains inside hooks (1).zip without creating another plaintext copy in Git.
+received/signal-client/deploy.bat
+
+# Unified application secrets and build output
+unified-app/.env
+unified-app/node_modules/
+unified-app/.npm-cache/
+unified-app/sidecar/node_modules/
+unified-app/telegram-sidecar/.venv/
+unified-app/telegram-sidecar/build/
+unified-app/telegram-sidecar/dist/
+unified-app/dist/
+unified-app/src-tauri/target/
+*.log

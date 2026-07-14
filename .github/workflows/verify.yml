@@ -1,0 +1,51 @@
+name: Verify unified application
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  frontend-and-rust:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: unified-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            unified-app/package-lock.json
+            unified-app/sidecar/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install frontend dependencies safely
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install sidecar dependencies safely
+        working-directory: unified-app/sidecar
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Type-check and build frontend
+        run: npm run build
+      - name: Build Telegram sidecar resource
+        working-directory: unified-app/telegram-sidecar
+        run: |
+          python -m pip install --requirement requirements.txt pyinstaller==6.6.0
+          python -m PyInstaller --clean --noconfirm telegram-sidecar.spec
+      - name: Check Rust backend
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+  python-sources:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile received Python source
+        run: |
+          python -m compileall -q received/admin-panel/src received/telegram-client/src received/signal-client/src received/sms-client/src unified-app/telegram-sidecar

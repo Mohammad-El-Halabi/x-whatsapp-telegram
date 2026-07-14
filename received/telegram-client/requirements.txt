@@ -1,0 +1,15 @@
+telethon==1.36.0
+supabase==2.6.0
+python-dotenv==1.0.1
+aiohttp==3.9.5
+apscheduler==3.10.4
+pydantic==2.7.0
+customtkinter==6.0.0
+pyinstaller==6.6.0
+py-tgcalls==2.3.3
+certifi==2025.1.31
+plyer==2.1.0
+
+sounddevice==0.5.1
+soundfile==0.14.0
+numpy==2.4.6

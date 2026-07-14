@@ -1,0 +1,50 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nickelpack/tauri/v2/core/tauri-config-schema/schema.json",
+  "productName": "Staff Communications Control",
+  "version": "2.0.0",
+  "identifier": "com.staffcommunications.control",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Staff Communications Control",
+        "width": 1600,
+        "height": 900,
+        "minWidth": 1200,
+        "minHeight": 700,
+        "decorations": false,
+        "transparent": false,
+        "resizable": true,
+        "visible": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data: blob:; media-src 'self' data: blob:; script-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "targets": "all",
+    "resources": {
+      "../sidecar/": "sidecar/",
+      "../telegram-sidecar/dist/telegram-sidecar.exe": "telegram-sidecar/telegram-sidecar.exe"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "both"
+      }
+    }
+  }
+}

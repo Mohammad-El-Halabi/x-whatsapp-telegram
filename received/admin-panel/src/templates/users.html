@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-users"></i> Users</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal"><i class="fas fa-plus"></i> Add User</button>
+</div>
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Office</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>{{ u.full_name }}</td>
+                    <td>{{ u.email }}</td>
+                    <td><span class="badge bg-{{ 'danger' if u.role == 'superadmin' else 'warning' if u.role == 'admin' else 'info' }}">{{ u.role }}</span></td>
+                    <td><small>{{ offices[u.office_id].name if u.office_id and u.office_id in offices else '-' }}</small></td>
+                    <td><span class="badge bg-{{ 'success' if u.is_active else 'secondary' }}">{{ 'Active' if u.is_active else 'Off' }}</span></td>
+                    <td>
+                        {% if u.role != 'superadmin' or is_superadmin %}
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#edit{{ u.id }}"><i class="fas fa-edit"></i></button>
+                        <form method="POST" action="{{ url_for('delete_user', user_id=u.id) }}" class="d-inline" onsubmit="return confirm('Delete?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <div class="modal fade" id="edit{{ u.id }}" tabindex="-1">
+                    <div class="modal-dialog"><div class="modal-content">
+                        <form method="POST" action="{{ url_for('edit_user', user_id=u.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <div class="modal-header"><h5>Edit User</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                            <div class="modal-body">
+                                <div class="mb-3"><label>Name</label><input name="full_name" class="form-control" value="{{ u.full_name }}" required></div>
+                                {% if u.role != 'superadmin' or is_superadmin %}
+                                <div class="mb-3"><label>Role</label><select name="role" class="form-select">
+                                    <option value="staff" {{ 'selected' if u.role=='staff' }}>Staff</option>
+                                    <option value="manager" {{ 'selected' if u.role=='manager' }}>Manager</option>
+                                    <option value="admin" {{ 'selected' if u.role=='admin' }}>Admin</option>
+                                    {% if is_superadmin %}<option value="superadmin" {{ 'selected' if u.role=='superadmin' }}>SuperAdmin</option>{% endif %}
+                                </select></div>
+                                <div class="mb-3"><label>Office</label><select name="office_id" class="form-select">
+                                    <option value="">None</option>
+                                    {% for oid, o in offices.items() %}<option value="{{ oid }}" {{ 'selected' if u.office_id==oid }}>{{ o.name }}</option>{% endfor %}
+                                </select></div>
+                                <div class="mb-3"><label>Password</label><input name="password" type="password" class="form-control" placeholder="Leave empty to keep current"></div>
+                                <div class="mb-3"><label><input type="checkbox" name="is_active" {{ 'checked' if u.is_active }}> Active</label></div>
+                                {% else %}
+                                <div class="alert alert-warning">SuperAdmin users cannot be edited by admins.</div>
+                                {% endif %}
+                            </div>
+                            <div class="modal-footer"><button class="btn btn-primary">Save</button></div>
+                        </form>
+                    </div></div>
+                </div>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="modal fade" id="createModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <form method="POST" action="{{ url_for('create_user') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="modal-header"><h5>Create User</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-3"><label>Full Name</label><input name="full_name" class="form-control" required></div>
+                <div class="mb-3"><label>Email</label><input name="email" type="email" class="form-control" required></div>
+                <div class="mb-3"><label>Password</label><input name="password" type="password" class="form-control" required></div>
+                <div class="mb-3"><label>Office</label><select name="office_id" class="form-select">
+                    <option value="">None</option>
+                    {% for oid, o in offices.items() %}<option value="{{ oid }}">{{ o.name }}</option>{% endfor %}
+                </select></div>
+                <div class="mb-3"><label>Role</label><select name="role" class="form-select"><option value="staff">Staff</option><option value="manager">Manager</option><option value="admin">Admin</option>{% if is_superadmin %}<option value="superadmin">SuperAdmin</option>{% endif %}</select></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-primary">Create</button></div>
+        </form>
+    </div></div>
+</div>
+{% endblock %}

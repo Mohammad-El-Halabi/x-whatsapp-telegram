@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Assignments{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-link"></i> Assignments</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal"><i class="fas fa-plus"></i> Add Number</button>
+</div>
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead><tr><th>Staff</th><th>Platform</th><th>Account</th><th>Gateway</th><th>Status</th><th>Last Connected</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for a in assignments %}
+                <tr>
+                    <td>{{ users[a.user_id].full_name if a.user_id in users else '?' }}</td>
+                    <td><span class="badge bg-{{ 'primary' if a.platform == 'telegram' else 'success' }}">{{ a.platform|capitalize }}</span></td>
+                    <td>{{ a.display_name or 'Account' }}</td>
+                    <td><code>{{ a.gateway_number }}</code></td>
+                    <td><span class="status-{{ a.connection_status or 'disconnected' }}"><i class="fas fa-circle"></i> {{ a.connection_status or 'disconnected' }}</span></td>
+                    <td><small class="text-muted">{{ a.last_connected_at.strftime('%Y-%m-%d %H:%M') if a.last_connected_at else '-' }}</small></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#edit{{ a.id }}"><i class="fas fa-edit"></i></button>
+                        <form method="POST" action="{{ url_for('delete_assignment', assignment_id=a.id) }}" class="d-inline" onsubmit="return confirm('Delete?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                <div class="modal fade" id="edit{{ a.id }}" tabindex="-1">
+                    <div class="modal-dialog"><div class="modal-content">
+                        <form method="POST" action="{{ url_for('edit_assignment', assignment_id=a.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <div class="modal-header"><h5>Edit</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                            <div class="modal-body">
+                                <div class="mb-3"><label>Platform</label><select name="platform" class="form-select" required>
+                                    <option value="telegram" {{ 'selected' if a.platform=='telegram' }}>Telegram</option>
+                                    <option value="whatsapp" {{ 'selected' if a.platform=='whatsapp' }}>WhatsApp</option>
+                                </select></div>
+                                <div class="mb-3"><label>Account Phone</label><input name="phone_number" class="form-control" value="{{ a.phone_number }}" required></div>
+                                <div class="mb-3"><label>Gateway Key</label><input name="gateway_number" class="form-control" value="{{ a.gateway_number }}" required></div>
+                                <div class="mb-3"><label>Display Name</label><input name="display_name" class="form-control" value="{{ a.display_name or '' }}"></div>
+                                <div class="mb-3"><label>Status</label><select name="connection_status" class="form-select">
+                                    <option value="disconnected" {{ 'selected' if a.connection_status=='disconnected' }}>Disconnected</option>
+                                    <option value="connected" {{ 'selected' if a.connection_status=='connected' }}>Connected</option>
+                                    <option value="pending" {{ 'selected' if a.connection_status=='pending' }}>Pending</option>
+                                    <option value="error" {{ 'selected' if a.connection_status=='error' }}>Error</option>
+                                </select></div>
+                                <div class="mb-3"><label><input type="checkbox" name="is_active" {{ 'checked' if a.is_active }}> Active</label></div>
+                            </div>
+                            <div class="modal-footer"><button class="btn btn-primary">Save</button></div>
+                        </form>
+                    </div></div>
+                </div>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="modal fade" id="createModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <form method="POST" action="{{ url_for('create_assignment') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="modal-header"><h5>Create Assignment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-3"><label>Staff</label><select name="user_id" class="form-select" required>
+                    {% for u in users.values() %}<option value="{{ u.id }}">{{ u.full_name }}</option>{% endfor %}
+                </select></div>
+                <div class="mb-3"><label>Platform</label><select name="platform" class="form-select" required><option value="telegram">Telegram</option><option value="whatsapp">WhatsApp</option></select></div>
+                <div class="mb-3"><label>Account Phone</label><input name="phone_number" class="form-control" required placeholder="Used for assignment validation only"></div>
+                <div class="mb-3"><label>Gateway Key</label><input name="gateway_number" class="form-control" required placeholder="Unique account key, e.g. telegram-hr-1"></div>
+                <div class="mb-3"><label>Display Name</label><input name="display_name" class="form-control" placeholder="Shown to staff instead of the account number"></div>
+                <div class="mb-3"><label><input type="checkbox" name="is_active" checked> Active</label></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-primary">Create</button></div>
+        </form>
+    </div></div>
+</div>
+{% endblock %}

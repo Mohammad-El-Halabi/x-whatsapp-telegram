@@ -1,0 +1,6 @@
+flask==3.0.3
+supabase==2.6.0
+python-dotenv==1.0.1
+pydantic==2.7.0
+waitress==3.0.2
+certifi==2025.1.31

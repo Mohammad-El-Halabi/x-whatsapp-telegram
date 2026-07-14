@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Clients{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-user-secret"></i> Clients</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal"><i class="fas fa-plus"></i> Add Client</button>
+</div>
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover">
+            <thead><tr><th>Masked ID</th><th>Platforms</th><th>Office</th><th>Gateway</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for c in clients %}
+                <tr>
+                    <td><strong>{{ c.masked_identity }}</strong></td>
+                    <td>{% for p in c.platforms %}<span class="badge bg-{{ 'primary' if p == 'telegram' else 'success' }} me-1">{{ p|capitalize }}</span>{% endfor %}</td>
+                    <td><small>{{ offices[c.office_id].name if c.office_id and c.office_id in offices else '-' }}</small></td>
+                    <td><code>{{ c.gateway_number }}</code></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#edit{{ c.id }}"><i class="fas fa-edit"></i></button>
+                        <form method="POST" action="{{ url_for('delete_client', client_id=c.id) }}" class="d-inline" onsubmit="return confirm('Delete?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                <div class="modal fade" id="edit{{ c.id }}" tabindex="-1">
+                    <div class="modal-dialog"><div class="modal-content">
+                        <form method="POST" action="{{ url_for('edit_client', client_id=c.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <div class="modal-header"><h5>Edit Client</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                            <div class="modal-body">
+                                <div class="mb-3"><label>Masked ID</label><input name="masked_identity" class="form-control" value="{{ c.masked_identity }}" required></div>
+                                <div class="mb-3"><label>Phone</label><input name="real_identifier" class="form-control" value="{{ c.real_identifier }}" required></div>
+                                <div class="mb-3"><label>Approved Platforms</label><div>
+                                    <label class="me-3"><input type="checkbox" name="platforms" value="telegram" {{ 'checked' if 'telegram' in c.platforms }}> Telegram</label>
+                                    <label><input type="checkbox" name="platforms" value="whatsapp" {{ 'checked' if 'whatsapp' in c.platforms }}> WhatsApp</label>
+                                </div></div>
+                                <div class="mb-3"><label>Telegram User ID</label><input name="telegram_identifier" class="form-control" value="{{ c.platform_identifiers.get('telegram', '') }}" placeholder="Numeric Telegram user ID"></div>
+                                <div class="mb-3"><label>WhatsApp Identifier</label><input name="whatsapp_identifier" class="form-control" value="{{ c.platform_identifiers.get('whatsapp', '') }}" placeholder="Defaults to Phone"></div>
+                                <div class="mb-3"><label>Office</label><select name="office_id" class="form-select">
+                                    <option value="">None</option>
+                                    {% for oid, o in offices.items() %}<option value="{{ oid }}" {{ 'selected' if c.office_id==oid }}>{{ o.name }}</option>{% endfor %}
+                                </select></div>
+                                <div class="mb-3"><label>Gateway</label><input name="gateway_number" class="form-control" value="{{ c.gateway_number }}"></div>
+                            </div>
+                            <div class="modal-footer"><button class="btn btn-primary">Save</button></div>
+                        </form>
+                    </div></div>
+                </div>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="modal fade" id="createModal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <form method="POST" action="{{ url_for('create_client') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="modal-header"><h5>Create Client</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-3"><label>Masked Identity</label><input name="masked_identity" class="form-control" required></div>
+                <div class="mb-3"><label>Phone</label><input name="real_identifier" class="form-control" required placeholder="+1234567890"></div>
+                <div class="mb-3"><label>Approved Platforms</label><div>
+                    <label class="me-3"><input type="checkbox" name="platforms" value="telegram"> Telegram</label>
+                    <label><input type="checkbox" name="platforms" value="whatsapp"> WhatsApp</label>
+                </div></div>
+                <div class="mb-3"><label>Telegram User ID</label><input name="telegram_identifier" class="form-control" placeholder="Numeric Telegram user ID"></div>
+                <div class="mb-3"><label>WhatsApp Identifier</label><input name="whatsapp_identifier" class="form-control" placeholder="Defaults to Phone"></div>
+                <div class="mb-3"><label>Office</label><select name="office_id" class="form-select">
+                    <option value="">None</option>
+                    {% for oid, o in offices.items() %}<option value="{{ oid }}">{{ o.name }}</option>{% endfor %}
+                </select></div>
+                <div class="mb-3"><label>Gateway</label><input name="gateway_number" class="form-control" value="default"></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-primary">Create</button></div>
+        </form>
+    </div></div>
+</div>
+{% endblock %}

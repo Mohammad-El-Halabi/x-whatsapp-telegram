@@ -1,0 +1,13 @@
+{
+  "name": "x-whatsapp-sidecar",
+  "version": "2.0.0",
+  "description": "WhatsApp sidecar for Tauri",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4",
+    "whatsapp-web.js": "^1.26.1"
+  }
+}
