@@ -4,6 +4,7 @@ received/**/session/
 received/**/src/session/
 received/**/__pycache__/
 received/**/*.pyc
+received/**/.venv*/
 received/**/crash.log
 received/telegram-client/src/downloads/
 # assets.zip contains a live Telegram session, downloaded private media, and a
