@@ -153,11 +153,22 @@ pub async fn supabase_get_staff_assignments(
     platform: String,
 ) -> Result<serde_json::Value, String> {
     let query = format!(
-        "staff_assignments?user_id=eq.{}&platform=eq.{}&is_active=eq.true&order=created_at.asc&select=id,user_id,office_id,platform,gateway_number,display_name,is_active,connection_status,created_at",
+        "staff_assignments?user_id=eq.{}&platform=eq.{}&is_active=eq.true&order=account_slot.asc.nullslast,created_at.asc&select=id,user_id,platform,account_slot,gateway_number,display_name,is_active,connection_status,created_at",
         urlencoding::encode(&user_id),
         urlencoding::encode(&platform.to_ascii_lowercase())
     );
-    rest_get(&query).await.or_else(|_| Ok(serde_json::json!([])))
+    match rest_get(&query).await {
+        Ok(rows) => Ok(rows),
+        Err(_) => {
+            // Keep older supplied databases usable until the paired-slot migration is applied.
+            let legacy_query = format!(
+                "staff_assignments?user_id=eq.{}&platform=eq.{}&is_active=eq.true&order=created_at.asc&select=id,user_id,platform,gateway_number,display_name,is_active,connection_status,created_at",
+                urlencoding::encode(&user_id),
+                urlencoding::encode(&platform.to_ascii_lowercase())
+            );
+            rest_get(&legacy_query).await
+        }
+    }
 }
 
 #[command]

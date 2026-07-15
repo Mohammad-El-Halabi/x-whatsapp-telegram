@@ -19,6 +19,7 @@ The similarly named original ZIP files are not duplicates: the React frontend, T
 - The WhatsApp tab displays exactly three independent account panels side by side.
 - Switching tabs does not disconnect or pause the other platform.
 - Every slot has an independent persisted Telegram or WhatsApp session and its own QR linking flow.
+- Account slots are paired by person/number: Telegram 1 and WhatsApp 1 share one account owner and phone number, as do pairs 2 and 3. Each platform still has its own QR session.
 - Telegram uses the supplied Telethon architecture through a bundled local sidecar.
 - Staff receive only opaque client IDs and masked names in the webview. Real Telegram IDs and WhatsApp routing identifiers remain behind the Rust boundary.
 - Incoming chats and messages from contacts not approved in Supabase are discarded before reaching the UI.
@@ -26,12 +27,18 @@ The similarly named original ZIP files are not duplicates: the React frontend, T
 
 ## Owner configuration
 
-1. Run `received/admin-panel/supabase/migrations/001_multi_account_support.sql` in the Supabase SQL editor.
-2. Create three active `telegram` assignments and three active `whatsapp` assignments for each staff member.
-3. Give each assignment a unique gateway key and a staff-safe display name. The first three active assignments, ordered by creation time, become slots 1–3.
+1. For a new Supabase project, run migrations `000`, `001`, and `002` in filename order. For the supplied existing project, run `001` and `002`.
+2. In **Paired Accounts**, create slots 1, 2, and 3 for each staff member. Each action atomically creates the Telegram and WhatsApp rows with the same phone number and gateway.
+3. The explicit `account_slot` field controls placement; creation order no longer decides which accounts are paired.
 4. Add clients in **Clients**, select Telegram, WhatsApp, or both, and enter the corresponding Telegram numeric user ID and/or WhatsApp identifier.
 5. Set the client's gateway to the specific assignment key. `default` approves that client for all three accounts on each selected platform.
 6. Use `masked_identity` as the staff-visible name. Actual identifiers remain visible only in the owner admin panel.
+
+## Why Supabase is required
+
+Supabase is the trusted backend for staff authentication, office membership, the three paired account assignments, and the owner-managed contact allow-list. The desktop receives masked contact names while the Rust backend uses the protected routing identifiers. Without Supabase, the application has no authoritative way to decide who may sign in or which contacts each office and account pair may access.
+
+The supplied URL and keys point to an existing project, but keys do not provide Dashboard ownership. The existing project owner must invite the new owner, or the new owner can create a free Supabase project, run the three migration files, create the first Auth user/profile, and replace the local URL and keys. Never place the service-role key in the desktop application's `.env`.
 
 ## Unified application setup
 

@@ -1,7 +1,6 @@
 import os
 import sys
 import logging
-import uuid
 import secrets
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
@@ -193,26 +192,26 @@ def assignments():
 @admin_required
 @csrf_check
 def create_assignment():
+    try:
+        account_slot = int(request.form.get('account_slot', ''))
+    except (TypeError, ValueError):
+        account_slot = 0
     data = {
-        'id': str(uuid.uuid4()),
         'user_id': request.form.get('user_id'),
-        'platform': request.form.get('platform', '').strip().lower(),
         'phone_number': request.form.get('phone_number', '').strip(),
         'gateway_number': request.form.get('gateway_number', '').strip(),
-        'display_name': request.form.get('display_name', '').strip(),
+        'account_slot': account_slot,
+        'display_name': request.form.get('display_name', '').strip() or f'Account {account_slot}',
         'is_active': request.form.get('is_active') == 'on'
     }
-    if data['platform'] not in ['telegram', 'whatsapp']:
-        flash('Choose Telegram or WhatsApp', 'error')
+    if account_slot not in [1, 2, 3] or not data['user_id'] or not data['phone_number'] or not data['gateway_number']:
+        flash('Staff, slot 1-3, phone number, and shared gateway are required', 'error')
         return redirect(url_for('assignments'))
-    if not data['user_id'] or not data['phone_number'] or not data['gateway_number']:
-        flash('Staff, platform, phone number, and gateway are required', 'error')
-        return redirect(url_for('assignments'))
-    result = supabase.create_assignment(data)
+    result = supabase.create_assignment_pair(data)
     if result:
-        flash('Assignment created', 'success')
+        flash(f'Telegram and WhatsApp account pair {account_slot} created', 'success')
     else:
-        flash('Failed to create assignment', 'error')
+        flash('Failed to create pair. That staff member may already have this slot.', 'error')
     return redirect(url_for('assignments'))
 
 
@@ -220,19 +219,22 @@ def create_assignment():
 @admin_required
 @csrf_check
 def edit_assignment(assignment_id):
+    try:
+        account_slot = int(request.form.get('account_slot', ''))
+    except (TypeError, ValueError):
+        account_slot = 0
     data = {
-        'platform': request.form.get('platform', '').strip().lower(),
         'phone_number': request.form.get('phone_number', '').strip(),
         'gateway_number': request.form.get('gateway_number', '').strip(),
+        'account_slot': account_slot,
         'display_name': request.form.get('display_name', '').strip(),
-        'is_active': request.form.get('is_active') == 'on',
-        'connection_status': request.form.get('connection_status')
+        'is_active': request.form.get('is_active') == 'on'
     }
-    if data['platform'] not in ['telegram', 'whatsapp'] or not data['phone_number'] or not data['gateway_number']:
-        flash('Platform, account phone, and gateway are required', 'error')
+    if account_slot not in [1, 2, 3] or not data['phone_number'] or not data['gateway_number']:
+        flash('Slot 1-3, account phone, and shared gateway are required', 'error')
         return redirect(url_for('assignments'))
-    if supabase.update_assignment(assignment_id, data):
-        flash('Assignment updated', 'success')
+    if supabase.update_assignment_pair(assignment_id, data):
+        flash(f'Account pair {account_slot} updated', 'success')
     else:
         flash('Failed to update assignment', 'error')
     return redirect(url_for('assignments'))
@@ -242,8 +244,8 @@ def edit_assignment(assignment_id):
 @admin_required
 @csrf_check
 def delete_assignment(assignment_id):
-    if supabase.delete_assignment(assignment_id):
-        flash('Assignment deleted', 'success')
+    if supabase.delete_assignment_pair(assignment_id):
+        flash('Telegram and WhatsApp account pair deleted', 'success')
     else:
         flash('Failed to delete assignment', 'error')
     return redirect(url_for('assignments'))

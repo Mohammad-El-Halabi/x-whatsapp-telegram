@@ -115,6 +115,21 @@ class SupabaseService:
         except Exception:
             return None
 
+    def create_assignment_pair(self, data: dict) -> bool:
+        """Create the Telegram and WhatsApp rows for one shared account slot atomically."""
+        try:
+            common = dict(data)
+            rows = []
+            for platform in ("telegram", "whatsapp"):
+                row = dict(common)
+                row["id"] = str(uuid.uuid4())
+                row["platform"] = platform
+                rows.append(row)
+            result = self.admin_client.table("staff_assignments").insert(rows).execute()
+            return len(result.data or []) == 2
+        except Exception:
+            return False
+
     def update_assignment(self, assignment_id: str, data: dict) -> bool:
         try:
             self.admin_client.table("staff_assignments").update(data).eq("id", assignment_id).execute()
@@ -122,9 +137,44 @@ class SupabaseService:
         except Exception:
             return False
 
+    def update_assignment_pair(self, assignment_id: str, data: dict) -> bool:
+        """Keep both platforms in a numbered slot on the same phone and gateway."""
+        try:
+            assignment = self.get_assignment_by_id(assignment_id)
+            if not assignment:
+                return False
+            if assignment.account_slot is None:
+                return self.update_assignment(assignment_id, data)
+            result = (
+                self.admin_client.table("staff_assignments")
+                .update(data)
+                .eq("user_id", assignment.user_id)
+                .eq("account_slot", assignment.account_slot)
+                .execute()
+            )
+            return len(result.data or []) >= 1
+        except Exception:
+            return False
+
     def delete_assignment(self, assignment_id: str) -> bool:
         try:
             self.admin_client.table("staff_assignments").delete().eq("id", assignment_id).execute()
+            return True
+        except Exception:
+            return False
+
+    def delete_assignment_pair(self, assignment_id: str) -> bool:
+        """Delete both platform rows for a numbered slot; preserve legacy row behavior."""
+        try:
+            assignment = self.get_assignment_by_id(assignment_id)
+            if not assignment:
+                return False
+            query = self.admin_client.table("staff_assignments").delete().eq("user_id", assignment.user_id)
+            if assignment.account_slot is None:
+                query = query.eq("id", assignment_id)
+            else:
+                query = query.eq("account_slot", assignment.account_slot)
+            query.execute()
             return True
         except Exception:
             return False

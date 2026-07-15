@@ -31,6 +31,7 @@ class StaffAssignment(BaseModel):
     platform: str
     phone_number: str
     gateway_number: str
+    account_slot: Optional[int] = None
     display_name: Optional[str] = None
     is_active: Optional[bool] = True
     connection_status: Optional[str] = "disconnected"

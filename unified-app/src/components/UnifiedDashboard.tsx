@@ -233,8 +233,22 @@ export default function UnifiedDashboard({ user, officeId, onLogout }: Props) {
     let cancelled = false;
     async function loadPlatform(platform: Platform) {
       const assignments = await supabase.getStaffAssignments(user.id, platform) as Assignment[];
-      const platformSlots = makeSlots(platform).map((slot, index) => {
-        const assignment = assignments[index];
+      const assignmentsBySlot = new Map<number, Assignment>();
+      const legacyAssignments: Assignment[] = [];
+      assignments.forEach(assignment => {
+        const slot = Number(assignment.account_slot);
+        if (Number.isInteger(slot) && slot >= 1 && slot <= 3 && !assignmentsBySlot.has(slot)) {
+          assignmentsBySlot.set(slot, assignment);
+        } else {
+          legacyAssignments.push(assignment);
+        }
+      });
+      legacyAssignments.forEach(assignment => {
+        const openSlot = [1, 2, 3].find(slot => !assignmentsBySlot.has(slot));
+        if (openSlot) assignmentsBySlot.set(openSlot, assignment);
+      });
+      const platformSlots = makeSlots(platform).map(slot => {
+        const assignment = assignmentsBySlot.get(slot.index);
         return assignment ? {
           ...slot,
           assignment,

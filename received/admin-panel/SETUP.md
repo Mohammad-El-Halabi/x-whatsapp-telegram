@@ -6,6 +6,14 @@
 
 ## Quick Setup
 
+If no Supabase project exists, create one at `https://supabase.com`, open **SQL Editor**, and run these files in order:
+
+1. `supabase/migrations/000_initial_schema.sql`
+2. `supabase/migrations/001_multi_account_support.sql`
+3. `supabase/migrations/002_paired_account_slots.sql`
+
+The Supabase project is not optional in this architecture: it authenticates staff and stores the owner-controlled office, paired-account, and approved-contact rules. A project URL or API key does not grant Dashboard access; the project owner must send an invitation, or a new project must be created.
+
 ```bash
 # 1. Create virtual environment
 python -m venv .venv

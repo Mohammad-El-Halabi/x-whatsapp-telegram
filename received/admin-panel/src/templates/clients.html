@@ -42,7 +42,7 @@
                                     <option value="">None</option>
                                     {% for oid, o in offices.items() %}<option value="{{ oid }}" {{ 'selected' if c.office_id==oid }}>{{ o.name }}</option>{% endfor %}
                                 </select></div>
-                                <div class="mb-3"><label>Gateway</label><input name="gateway_number" class="form-control" value="{{ c.gateway_number }}"></div>
+                                <div class="mb-3"><label>Account Pair Gateway</label><input name="gateway_number" class="form-control" value="{{ c.gateway_number }}"><small class="text-muted">Use the shared gateway from paired slot 1, 2, or 3. Use default for every pair.</small></div>
                             </div>
                             <div class="modal-footer"><button class="btn btn-primary">Save</button></div>
                         </form>
@@ -71,7 +71,7 @@
                     <option value="">None</option>
                     {% for oid, o in offices.items() %}<option value="{{ oid }}">{{ o.name }}</option>{% endfor %}
                 </select></div>
-                <div class="mb-3"><label>Gateway</label><input name="gateway_number" class="form-control" value="default"></div>
+                <div class="mb-3"><label>Account Pair Gateway</label><input name="gateway_number" class="form-control" value="default"><small class="text-muted">Use the shared gateway from paired slot 1, 2, or 3. Use default for every pair.</small></div>
             </div>
             <div class="modal-footer"><button class="btn btn-primary">Create</button></div>
         </form>

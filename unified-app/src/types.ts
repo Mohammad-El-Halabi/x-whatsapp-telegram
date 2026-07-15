@@ -12,6 +12,7 @@ export interface User {
 export interface Assignment {
   id: string;
   gateway_number?: string;
+  account_slot?: number;
   display_name?: string;
   connection_status?: string;
   platform?: Platform | string;
