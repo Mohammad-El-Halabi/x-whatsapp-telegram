@@ -61,6 +61,7 @@ export default function AccountPanel({
 
   const attach = async () => {
     if (!selected) return;
+    if (!(window as any).__TAURI_INTERNALS__) return;
     const selectedPath = await open({ multiple: false, directory: false });
     if (typeof selectedPath === 'string') {
       await onSendFile(selected.id, selectedPath);

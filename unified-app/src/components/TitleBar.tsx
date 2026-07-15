@@ -3,7 +3,8 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
 export default function TitleBar() {
-  const appWindow = getCurrentWindow();
+  const isTauri = Boolean((window as any).__TAURI_INTERNALS__);
+  const appWindow = isTauri ? getCurrentWindow() : null;
 
   return (
     <div className="flex justify-between items-center h-8 bg-bg-secondary border-b border-border select-none title-bar-drag">
@@ -13,7 +14,7 @@ export default function TitleBar() {
           <span>Staff Communications Control</span>
         </div>
       </div>
-      <div className="flex title-bar-controls">
+      {appWindow && <div className="flex title-bar-controls">
         <button onClick={() => appWindow.minimize()} className="w-[46px] h-8 border-none bg-transparent text-text-secondary cursor-pointer flex items-center justify-center hover:bg-bg-hover hover:text-text-primary transition-all">
           <svg width="12" height="12" viewBox="0 0 12 12"><rect y="5" width="12" height="1" fill="currentColor"/></svg>
         </button>
@@ -23,7 +24,7 @@ export default function TitleBar() {
         <button onClick={() => appWindow.close()} className="w-[46px] h-8 border-none bg-transparent text-text-secondary cursor-pointer flex items-center justify-center hover:bg-danger hover:text-white transition-all">
           <svg width="12" height="12" viewBox="0 0 12 12"><path d="M1 1L11 11M11 1L1 11" stroke="currentColor" strokeWidth="1.5"/></svg>
         </button>
-      </div>
+      </div>}
     </div>
   );
 }
