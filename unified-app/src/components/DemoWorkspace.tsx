@@ -83,6 +83,9 @@ export default function DemoWorkspace() {
 
   return (
     <div className="dashboard-shell">
+      <div style={{ background: '#fff4cc', color: '#5f4300', padding: '8px 16px', textAlign: 'center', fontWeight: 700 }}>
+        Visual review only — sample contacts and messages. Live accounts, QR linking, and delivery run in the Windows application.
+      </div>
       <div className="dashboard-toolbar">
         <div className="platform-tabs" role="tablist" aria-label="Communication platforms">
           <button className={activePlatform === 'telegram' ? 'active' : ''} onClick={() => setActivePlatform('telegram')}>

@@ -1,0 +1,8 @@
+.env
+.npm-cache
+build-windows.bat
+dist
+node_modules
+sidecar
+src-tauri
+telegram-sidecar

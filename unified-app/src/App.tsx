@@ -14,8 +14,9 @@ interface SavedSession {
 }
 
 export default function App() {
-  const demoMode = ['127.0.0.1', 'localhost'].includes(window.location.hostname)
-    && new URLSearchParams(window.location.search).get('demo') === '1';
+  const demoMode = import.meta.env.VITE_DEMO_MODE === '1'
+    || (['127.0.0.1', 'localhost'].includes(window.location.hostname)
+      && new URLSearchParams(window.location.search).get('demo') === '1');
   const [session, setSession] = useState<SavedSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [loginLoading, setLoginLoading] = useState(false);

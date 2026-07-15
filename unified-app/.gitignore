@@ -5,3 +5,5 @@ src-tauri/binaries/
 sidecar/node_modules/
 *.log
 .env.local
+
+.vercel
