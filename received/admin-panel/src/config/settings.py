@@ -33,5 +33,5 @@ _raw_secret = os.getenv("SECRET_KEY", "")
 SECRET_KEY = _raw_secret if _raw_secret and _raw_secret != "change-this-in-production" else secrets.token_hex(32)
 
 DEBUG = os.getenv("FLASK_DEBUG", "0") == "1"
-HOST = os.getenv("FLASK_HOST", "0.0.0.0")
+HOST = os.getenv("FLASK_HOST", "127.0.0.1")
 PORT = int(os.getenv("FLASK_PORT", "5001"))

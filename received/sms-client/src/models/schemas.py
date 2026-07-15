@@ -39,3 +39,7 @@ class ClientSecure(BaseModel):
     staff_id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+    def identifier_for(self, platform: str) -> str:
+        value = self.platform_identifiers.get(platform, "") if self.platform_identifiers else ""
+        return str(value or self.real_identifier).strip()

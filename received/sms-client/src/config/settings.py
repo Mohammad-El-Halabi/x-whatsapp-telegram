@@ -5,10 +5,12 @@ from pathlib import Path
 
 if getattr(sys, 'frozen', False):
     BASE_DIR = Path(sys.executable).resolve().parent
-    load_dotenv(BASE_DIR / ".env")
+    ENV_PATH = BASE_DIR / ".env"
+    load_dotenv(ENV_PATH)
 else:
     BASE_DIR = Path(__file__).resolve().parent.parent.parent
-    load_dotenv(BASE_DIR / ".env")
+    ENV_PATH = BASE_DIR / ".env"
+    load_dotenv(ENV_PATH)
 
 # Ensure bundled SSL certificates are found in frozen apps
 try:
@@ -20,7 +22,6 @@ except Exception:
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY", "")
-SUPABASE_SERVICE_KEY = os.getenv("SERVICE_ROLE_KEY", "")
 
 MODEM_PORT = os.getenv("MODEM_PORT", "COM3")
 MODEM_BAUD = int(os.getenv("MODEM_BAUD", "115200"))

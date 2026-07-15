@@ -1,74 +1,101 @@
 # Staff Communications Control
 
-This repository preserves the supplied projects and adds one desktop application with three simultaneous Telegram accounts and three simultaneous WhatsApp accounts.
+This repository preserves the supplied projects and adds a unified Windows application with three simultaneous Telegram accounts and three simultaneous WhatsApp accounts. The supplied Signal and SMS clients remain available as separate Windows applications and use the same admin panel and Supabase allow-list.
 
-## Repository layout
+## What is included
 
-- `received/admin-panel` — extracted Flask/Supabase owner administration panel, extended for platform and account selection.
-- `received/telegram-client` — the missing authoritative Telegram/Telethon client extracted from `assets.zip`.
-- `received/signal-client` — the previously supplied Signal source, preserved unchanged as a received project but not used by the unified application.
-- `received/sms-client` — original SMS desktop client source.
-- `received/whatsapp-app` — the original React, Tauri, and Node WhatsApp layers assembled correctly.
-- `unified-app` — the new two-tab desktop application.
+- `unified-app` — two tabs: three Telegram panels and three WhatsApp panels, side by side.
+- `received/admin-panel` — owner administration for users, offices, account assignments, and approved contacts.
+- `received/telegram-client` — the authoritative Telegram/Telethon source extracted from the supplied `assets.zip`.
+- `received/whatsapp-app` — the supplied React, Tauri, and Node WhatsApp layers.
+- `received/signal-client` — the supplied Signal client, restored to the shared Supabase configuration and packaged with `signal-cli`.
+- `received/sms-client` — the supplied SMS client for an Android Termux gateway or a compatible USB modem.
+- `received/admin-panel/supabase/migrations` — the complete database schema and security policies.
 
-The similarly named original ZIP files are not duplicates: the React frontend, Tauri backend, and Node sidecar are separate required layers. `assets.zip` is also distinct. It remains preserved locally but is intentionally excluded from Git because it contains a live Telegram session, downloaded private media, and a plaintext environment file. Its safe source is extracted under `received/telegram-client`; runtime sessions, media, caches, and secrets are excluded.
+The similarly named ZIP files are not duplicates: the React frontend, Tauri backend, Node sidecar, Telegram source, Signal source, and SMS source are distinct layers. `assets.zip` remains preserved locally but is excluded from Git because it contains a live Telegram session, private downloaded media, and a plaintext environment file. Safe source was extracted to `received/telegram-client`; sessions, caches, build output, and secrets are ignored.
 
-## Resulting behavior
+## Required behavior
 
-- The Telegram tab displays exactly three independent account panels side by side.
-- The WhatsApp tab displays exactly three independent account panels side by side.
-- Switching tabs does not disconnect or pause the other platform.
-- Every slot has an independent persisted Telegram or WhatsApp session and its own QR linking flow.
-- Account slots are paired by person/number: Telegram 1 and WhatsApp 1 share one account owner and phone number, as do pairs 2 and 3. Each platform still has its own QR session.
-- Telegram uses the supplied Telethon architecture through a bundled local sidecar.
-- Staff receive only opaque client IDs and masked names in the webview. Real Telegram IDs and WhatsApp routing identifiers remain behind the Rust boundary.
-- Incoming chats and messages from contacts not approved in Supabase are discarded before reaching the UI.
-- Outgoing commands accept only a Supabase client ID and are rejected unless that client is approved for that platform and account.
+- Telegram and WhatsApp each show exactly three independent panels without tab switching between accounts.
+- Telegram slot 1 and WhatsApp slot 1 represent the same phone/account owner; the same pairing applies to slots 2 and 3. Each platform still has its own QR/device-link session.
+- Switching the Telegram/WhatsApp tab does not disconnect the other platform.
+- Contact lists and chats render the owner-defined `masked_identity`, never a client phone number or routing identifier.
+- Only contacts enabled in Supabase for the selected platform and account gateway are accepted.
+- Signal and SMS are standalone supplied applications. They are configured in the same admin panel and only load contacts enabled for their platform.
+- Staff applications use only the Supabase public anon key. The service-role key belongs only in the owner admin panel.
 
-## Owner configuration
+## Supabase setup
 
-1. For a new Supabase project, run migrations `000`, `001`, and `002` in filename order. For the supplied existing project, run `001` and `002`.
-2. In **Paired Accounts**, create slots 1, 2, and 3 for each staff member. Each action atomically creates the Telegram and WhatsApp rows with the same phone number and gateway.
-3. The explicit `account_slot` field controls placement; creation order no longer decides which accounts are paired.
-4. Add clients in **Clients**, select Telegram, WhatsApp, or both, and enter the corresponding Telegram numeric user ID and/or WhatsApp identifier.
-5. Set the client's gateway to the specific assignment key. `default` approves that client for all three accounts on each selected platform.
-6. Use `masked_identity` as the staff-visible name. Actual identifiers remain visible only in the owner admin panel.
+For a new project, apply all migrations in filename order:
 
-## Why Supabase is required
+1. `000_initial_schema.sql`
+2. `001_multi_account_support.sql`
+3. `002_paired_account_slots.sql`
+4. `003_restore_signal_sms.sql`
 
-Supabase is the trusted backend for staff authentication, office membership, the three paired account assignments, and the owner-managed contact allow-list. The desktop receives masked contact names while the Rust backend uses the protected routing identifiers. Without Supabase, the application has no authoritative way to decide who may sign in or which contacts each office and account pair may access.
+They can be run in the Supabase SQL Editor or from a linked Supabase CLI project. This repository's configured development project already has all four migrations applied; a client-owned replacement project must apply them again and use its own keys.
 
-The supplied URL and keys point to an existing project, but keys do not provide Dashboard ownership. The existing project owner must invite the new owner, or the new owner can create a free Supabase project, run the three migration files, create the first Auth user/profile, and replace the local URL and keys. Never place the service-role key in the desktop application's `.env`.
+The admin panel then configures the live data:
 
-## Unified application setup
+1. Create offices and staff users in **Users**.
+2. In **Assignments**, create Telegram + WhatsApp pairs for slots 1, 2, and 3. One action writes both rows with the same phone and gateway.
+3. Add standalone Signal and/or SMS assignments only if those supplied clients are required.
+4. In **Clients**, enter a staff-visible masked name, choose approved platforms, and enter the private platform routing identifiers.
+5. Set `gateway_number` to an assignment's gateway key, or `default` to approve the contact for every account on the selected platform.
 
-Requirements:
+Supabase is the trusted source for authentication, office membership, account assignments, and the allow-list. Do not commit `.env` files, distribute the admin service-role key to staff, or put that key in any desktop application.
 
-- Node.js 20+ and npm.
-- Python 3.11+ to build the bundled Telethon sidecar.
-- Rust and the Windows Tauri prerequisites.
-- Chrome or Edge for the WhatsApp Web runtime.
+## Run the admin panel
 
-Copy `unified-app/.env.example` to `unified-app/.env`, then set the Supabase public configuration and Telegram API application credentials. Never put a Supabase service-role key in the staff application.
+```powershell
+cd received\admin-panel
+py -3.11 -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env
+# Fill SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY, and SECRET_KEY.
+.venv\Scripts\python.exe run.py
+```
 
-For development, install the frontend, WhatsApp, and Telegram dependencies, then run Tauri:
+Open `http://localhost:5001`. Production deployment instructions are in `received/admin-panel/SETUP.md`.
+
+## Run the unified Telegram/WhatsApp application
+
+Requirements: Node.js 20+, Python 3.11+, Rust, and the Windows Tauri prerequisites.
 
 ```powershell
 cd unified-app
+Copy-Item .env.example .env
+# Fill the public Supabase values and Telegram API credentials.
 npm.cmd ci --ignore-scripts --no-audit --no-fund
-cd sidecar
+Push-Location sidecar
 npm.cmd ci --ignore-scripts --no-audit --no-fund
-cd ..\telegram-sidecar
-python -m pip install -r requirements.txt
-cd ..
+Pop-Location
+Push-Location telegram-sidecar
+py -3.11 -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+Pop-Location
 npm.cmd run tauri:dev
 ```
 
-`build-windows.bat` installs the safe dependency sets, creates the PyInstaller Telegram sidecar, and builds the Windows installer.
+Run `unified-app\build-windows.bat` to produce MSI and NSIS installers. On first use, scan each of the three Telegram QR codes from **Telegram Settings → Devices** and each of the three WhatsApp QR codes from **Linked devices**.
 
-## Account linking
+## Signal and SMS
 
-- Telegram: each unlinked slot displays its own QR code. In Telegram, open **Settings → Devices → Link Desktop Device** and scan it. If two-step verification is enabled, the local app requests the password without storing or sending it anywhere except the local Telethon runtime.
-- WhatsApp: each unlinked slot displays its own QR code. Scan it with the corresponding account under **Linked devices**.
+Signal and SMS do not appear as extra tabs in the unified application; they are the separate supplied clients:
 
-No client number or routing identifier is rendered in account headers, contact lists, chats, notifications, errors, or QR instructions.
+- Signal: see `received/signal-client/README.md`. It uses the unofficial open-source `signal-cli`, a local Java runtime, and a Signal link/registration step.
+- SMS: see `received/sms-client/README.md`. Real SMS requires either an Android phone running the supplied Termux gateway or a compatible AT-command modem and SIM.
+
+Software tests can validate authentication, allow-list behavior, builds, and startup. Actual Telegram, WhatsApp, Signal, and SMS delivery requires the client's real accounts, QR/device approval, phone/SIM, and network access.
+
+## Build output
+
+Builds are intentionally ignored because they are generated and may contain local configuration. Expected local outputs are:
+
+- `received/admin-panel/dist/AdminPanel.exe`
+- `received/signal-client/dist/Signal Staff Control.exe`
+- `received/sms-client/dist/SMSStaffControl.exe`
+- `unified-app/src-tauri/target/release/bundle/msi/*.msi`
+- `unified-app/src-tauri/target/release/bundle/nsis/*-setup.exe`
+
+GitHub Actions recompiles Python sources, applies the database migrations to a clean PostgreSQL instance, builds the web frontend and Telegram sidecar, and checks the Rust backend.

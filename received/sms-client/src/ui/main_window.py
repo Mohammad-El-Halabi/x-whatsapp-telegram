@@ -21,6 +21,7 @@ class SMSApp(ctk.CTk):
         self._selected_client = None
         self._chat_messages = {}
         self._gateway = None
+        self._sms_gateway = "default"
         self._show_login()
 
     def _show_login(self):
@@ -211,7 +212,9 @@ class SMSApp(ctk.CTk):
     def _fetch_contacts(self):
         try:
             office_id = self.current_user.office_id if self.current_user else None
-            clients = self.supabase.get_clients_by_office(office_id) if office_id else []
+            assignments = self.supabase.get_staff_assignments(self.current_user.id, "sms") if self.current_user else []
+            self._sms_gateway = assignments[0].gateway_number if assignments else "default"
+            clients = self.supabase.get_clients_by_office(office_id, self._sms_gateway) if office_id else []
             self._clients = clients
             self.after(0, self._render_contacts)
         except Exception:
@@ -223,8 +226,7 @@ class SMSApp(ctk.CTk):
         filtered = self._clients
         if filter_text:
             filtered = [c for c in self._clients
-                       if filter_text.lower() in c.masked_identity.lower()
-                       or filter_text in c.real_identifier]
+                       if filter_text.lower() in c.masked_identity.lower()]
         if not filtered:
             ctk.CTkLabel(self.contact_list, text="No contacts",
                         font=("Arial", 12), text_color="#444").pack(pady=20)
@@ -279,7 +281,7 @@ class SMSApp(ctk.CTk):
     def _select_contact(self, client):
         self._selected_client = client
         self.phone_entry.delete(0, "end")
-        self.phone_entry.insert(0, client.real_identifier)
+        self.phone_entry.insert(0, client.identifier_for("sms"))
 
         initial = client.masked_identity[0].upper() if client.masked_identity else "?"
         self.chat_avatar.configure(text=initial)
@@ -575,7 +577,7 @@ class SMSApp(ctk.CTk):
             msg = {"direction": "received", "message": message, "time": now, "phone": phone}
             matched = None
             for c in self._clients:
-                if c.real_identifier == phone:
+                if c.identifier_for("sms").lstrip("+") == phone.lstrip("+"):
                     matched = c
                     break
             if matched:

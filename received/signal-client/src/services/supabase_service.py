@@ -1,5 +1,5 @@
 from supabase import create_client, Client
-from src.config.settings import SUPABASE_URL, SUPABASE_KEY, SUPABASE_SERVICE_KEY, SESSION_DIR
+from src.config.settings import SUPABASE_URL, SUPABASE_KEY, SESSION_DIR, ENV_PATH
 from src.models.schemas import User, StaffAssignment, ClientSecure
 from typing import Optional, List
 import json
@@ -13,8 +13,12 @@ class SupabaseService:
     SESSION_FILE = SESSION_DIR / "session.json"
 
     def __init__(self):
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            raise RuntimeError(
+                f"Missing Supabase configuration. Create {ENV_PATH} "
+                "with SUPABASE_URL and SUPABASE_ANON_KEY."
+            )
         self.client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        self.admin_client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
         self._access_token: Optional[str] = None
         self._refresh_token: Optional[str] = None
         # Set tighter timeouts on all HTTP sessions
@@ -22,7 +26,6 @@ class SupabaseService:
             import httpx
             to = httpx.Timeout(10.0, connect=8.0)
             self.client.postgrest.session.timeout = to
-            self.admin_client.postgrest.session.timeout = to
         except Exception:
             pass
 
@@ -149,32 +152,43 @@ class SupabaseService:
         logger.debug(f" get_staff_assignments: {len(result.data)} rows")
         return [StaffAssignment(**a) for a in result.data]
 
-    def get_clients_by_office(self, office_id: str) -> List[ClientSecure]:
+    @staticmethod
+    def _gateway_matches(client: ClientSecure, gateway_number: str = None) -> bool:
+        configured = (client.gateway_number or "default").strip()
+        return not gateway_number or not configured or configured.lower() == "default" or configured == gateway_number.strip()
+
+    @staticmethod
+    def _identifier_matches(client: ClientSecure, identifier: str, platform: str) -> bool:
+        expected = client.identifier_for(platform)
+        return expected.lstrip("+") == identifier.strip().lstrip("+")
+
+    def get_clients_by_office(self, office_id: str, gateway_number: str = None) -> List[ClientSecure]:
         logger.debug(f" get_clients_by_office: office_id='{office_id}'")
-        result = self.client.table("clients_secure").select("*").eq("office_id", office_id).execute()
+        result = (
+            self.client.table("clients_secure")
+            .select("*")
+            .eq("office_id", office_id)
+            .contains("platforms", ["signal"])
+            .order("masked_identity")
+            .execute()
+        )
         logger.debug(f" get_clients_by_office: {len(result.data)} clients")
-        for c in result.data:
-            logger.debug(f"  - id={c.get('id','')}, real={c.get('real_identifier','')}, name={c.get('masked_identity','')}")
-        return [ClientSecure(**c) for c in result.data]
+        clients = [ClientSecure(**c) for c in result.data]
+        return [c for c in clients if self._gateway_matches(c, gateway_number)]
 
     def get_client_by_real_id(self, real_identifier: str, gateway_number: str = None) -> Optional[ClientSecure]:
         logger.debug(f" get_client_by_real_id: real_identifier='{real_identifier}'")
-        identifiers_to_try = [real_identifier]
-        if real_identifier.startswith("+"):
-            identifiers_to_try.append(real_identifier[1:])
-        else:
-            identifiers_to_try.append("+" + real_identifier)
-        for rid in identifiers_to_try:
-            result = (
-                self.client.table("clients_secure")
-                .select("*")
-                .eq("real_identifier", rid)
-                .execute()
-            )
-            if result.data:
-                c = result.data[0]
-                logger.debug(f" get_client_by_real_id: found name='{c.get('masked_identity','')}' via '{rid}'")
-                return ClientSecure(**c)
+        result = (
+            self.client.table("clients_secure")
+            .select("*")
+            .contains("platforms", ["signal"])
+            .execute()
+        )
+        for row in result.data:
+            client = ClientSecure(**row)
+            if self._gateway_matches(client, gateway_number) and self._identifier_matches(client, real_identifier, "signal"):
+                logger.debug("get_client_by_real_id: approved Signal client found")
+                return client
         logger.debug("get_client_by_real_id: not found")
         return None
 
@@ -184,4 +198,4 @@ class SupabaseService:
             update_data["connection_data"] = json.dumps(connection_data)
         if status == "connected":
             update_data["last_connected_at"] = datetime.now(timezone.utc).isoformat()
-        self.admin_client.table("staff_assignments").update(update_data).eq("id", assignment_id).execute()
+        self.client.table("staff_assignments").update(update_data).eq("id", assignment_id).execute()

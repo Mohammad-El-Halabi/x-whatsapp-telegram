@@ -3,7 +3,7 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = []
 binaries = []
-hiddenimports = ['supabase', 'serial', 'serial.tools.list_ports', 'customtkinter', 'PIL', 'PIL.Image', 'dotenv', 'pydantic', 'certifi']
+hiddenimports = ['supabase', 'serial', 'serial.tools.list_ports', 'customtkinter', 'dotenv', 'pydantic', 'certifi']
 tmp_ret = collect_all('supabase')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('customtkinter')

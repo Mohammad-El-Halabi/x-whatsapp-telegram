@@ -17,7 +17,11 @@ from typing import Optional, List
 
 logger = logging.getLogger(__name__)
 import qrcode
-from PIL import Image, ImageTk
+try:
+    from PIL import Image, ImageTk
+except ImportError:  # The compact Windows build omits optional image previews.
+    Image = None
+    ImageTk = None
 from src.config.settings import SESSION_DIR, APP_DIR
 
 # Signal colors — updated palette
@@ -65,6 +69,7 @@ class SignalApp(ctk.CTk):
         self._unread_counts: dict[str, int] = {}
         self._chat_widgets: dict[str, dict] = {}
         self._contacts_map: dict[str, dict] = {}
+        self._signal_gateway = "default"
         self._call_state: Optional[str] = None
         self._current_call_id: Optional[str] = None
         self._call_contact: Optional[str] = None
@@ -105,8 +110,8 @@ class SignalApp(ctk.CTk):
     def _play_notification(self):
         if sys.platform != "win32":
             return
-        import winsound
         try:
+            import winsound
             winsound.MessageBeep(winsound.MB_ICONASTERISK)
         except Exception:
             pass
@@ -114,10 +119,10 @@ class SignalApp(ctk.CTk):
     def _play_ringtone_loop(self):
         if sys.platform != "win32":
             return
-        import winsound
         if not SignalApp._ringtone_path:
             SignalApp._ringtone_path = self._generate_ringtone_wav()
         try:
+            import winsound
             winsound.PlaySound(SignalApp._ringtone_path,
                                winsound.SND_ASYNC | winsound.SND_LOOP | winsound.SND_NODEFAULT)
         except Exception:
@@ -126,8 +131,8 @@ class SignalApp(ctk.CTk):
     def _stop_sound(self):
         if sys.platform != "win32":
             return
-        import winsound
         try:
+            import winsound
             winsound.PlaySound(None, winsound.SND_PURGE)
         except Exception:
             pass
@@ -158,6 +163,8 @@ class SignalApp(ctk.CTk):
             logger.info("no messages file found")
 
     def _get_logo_pil(self, size=80):
+        if Image is None:
+            return None
         if self._logo_pil is None:
             try:
                 logo_path = os.path.join(str(APP_DIR), "logo.webp")
@@ -189,7 +196,6 @@ class SignalApp(ctk.CTk):
         # Logo
         logo_pil = self._get_logo_pil(100)
         if logo_pil:
-            from PIL import ImageTk
             logo_tk = ImageTk.PhotoImage(logo_pil)
             logo_label = tk.Label(self.login_frame, image=logo_tk, bg=BG)
             logo_label.image = logo_tk
@@ -488,7 +494,8 @@ class SignalApp(ctk.CTk):
 
     def _add_chat_item(self, number: str, name: str, masked: bool = False,
                        preview: str = "", time_str: str = "", unread: int = 0):
-        search_text = (name + " " + number).lower()
+        # Client numbers are routing data, not staff-searchable UI data.
+        search_text = name.lower()
         is_active = number == self.active_chat
 
         frame = ctk.CTkFrame(self.chat_list_frame, fg_color=ACTIVE_BG if is_active else "transparent",
@@ -802,7 +809,7 @@ class SignalApp(ctk.CTk):
             for att in attachments:
                 ct = att.get("contentType", "") or _detect_ct(att.get("path", "")) or ""
                 path = att.get("path", "")
-                if ct.startswith("image/") and path and os.path.exists(path):
+                if ct.startswith("image/") and Image is not None and path and os.path.exists(path):
                     try:
                         img = Image.open(path)
                         display_w = min(img.width, 320)
@@ -964,11 +971,22 @@ class SignalApp(ctk.CTk):
 
     def _display_qr(self, url: str):
         self.qr_label.configure(text="Scan this QR code with Signal:", font=("Inter", 12), text_color=TEXT_SECONDARY)
-        qr_img = qrcode.make(url)
-        img = qr_img.convert("RGB").resize((220, 220), Image.NEAREST)
-        imgtk = ctk.CTkImage(light_image=img, dark_image=img, size=(220, 220))
-        self.qr_label.configure(image=imgtk)
-        self.qr_label.image = imgtk
+        qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, border=4)
+        qr.add_data(url)
+        qr.make(fit=True)
+        matrix = qr.get_matrix()
+        module_count = len(matrix)
+        scale = max(1, 220 // module_count)
+        size = module_count * scale
+        image = tk.PhotoImage(width=size, height=size)
+        image.put("white", to=(0, 0, size, size))
+        for row_index, row in enumerate(matrix):
+            for column_index, dark in enumerate(row):
+                if dark:
+                    x1, y1 = column_index * scale, row_index * scale
+                    image.put("black", to=(x1, y1, x1 + scale, y1 + scale))
+        self.qr_label.configure(image=image)
+        self.qr_label.image = image
 
     def _on_linked(self, number: str):
         self._destroy_dialog()
@@ -1391,13 +1409,26 @@ class SignalApp(ctk.CTk):
         # For sync messages, display_name should be the recipient (sender = destination)
         if is_sync and sender:
             display_name = sender
-        # Look up friendly name from contacts map (never show phone number)
+        # Drop traffic for contacts that the owner did not approve for Signal.
+        # This callback runs on the Signal worker thread, so the lookup cannot
+        # block the Tk event loop.
         contact_info = self._contacts_map.get(display_name, {})
-        friendly_name = contact_info.get("name", "")
-        if not friendly_name:
-            friendly_name = "Unknown"
-            # Trigger background Supabase lookup
-            self._resolve_client_name(display_name)
+        if not contact_info:
+            try:
+                approved = self.supabase.get_client_by_real_id(display_name, self._signal_gateway)
+            except Exception as exc:
+                logger.info(f"Signal allow-list lookup failed: {exc}")
+                return
+            if not approved:
+                logger.info("Discarded Signal traffic from an unapproved contact")
+                return
+            contact_info = {
+                "number": display_name,
+                "name": approved.masked_identity or "Unknown",
+                "masked": True,
+            }
+            self._contacts_map[display_name] = contact_info
+        friendly_name = contact_info.get("name", "") or "Unknown"
         logger.debug(f"_on_message: is_sent={is_sent}, display_name='{display_name}', friendly='{friendly_name}', active_chat='{self.active_chat}'")
         cache_key = display_name
         if cache_key not in self.messages_cache:
@@ -1609,23 +1640,23 @@ class SignalApp(ctk.CTk):
             try:
                 logger.info(f"_on_contacts: user={self.current_user.id if self.current_user else 'None'}")
                 office_id = self.current_user.office_id if self.current_user else None
-                clients = self.supabase.get_clients_by_office(office_id) if office_id else []
+                assignments = self.supabase.get_staff_assignments(self.current_user.id, "signal") if self.current_user else []
+                self._signal_gateway = assignments[0].gateway_number if assignments else "default"
+                clients = self.supabase.get_clients_by_office(office_id, self._signal_gateway) if office_id else []
                 logger.info(f"_on_contacts: got {len(clients)} clients from supabase")
-                seen = {c.get("number") for c in contacts}
-                for c in clients:
-                    num = c.real_identifier
+                approved_contacts = []
+                for client in clients:
+                    num = client.identifier_for("signal")
                     if not num.startswith("+"):
                         num = "+" + num
-                    name = c.masked_identity or "Unknown"
-                    if num in seen:
-                        for entry in contacts:
-                            if entry.get("number") == num:
-                                entry["name"] = name
-                                entry["masked"] = True
-                                break
-                    else:
-                        contacts.append({"number": num, "name": name, "masked": True})
-                        seen.add(num)
+                    approved_contacts.append({
+                        "number": num,
+                        "name": client.masked_identity or "Unknown",
+                        "masked": True,
+                    })
+                # Replace signal-cli's full address book with the Supabase
+                # allow-list. Mutating in place also updates the worker cache.
+                contacts[:] = approved_contacts
             except Exception as e:
                 logger.info(f"Error loading contacts: {e}")
                 import traceback

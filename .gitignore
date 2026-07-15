@@ -7,6 +7,15 @@ received/**/*.pyc
 received/**/.venv*/
 received/**/crash.log
 received/telegram-client/src/downloads/
+received/signal-client/signal-cli/
+received/signal-client/runtime/
+received/signal-client/build/
+received/signal-client/dist/
+received/sms-client/build/
+received/sms-client/dist/
+received/admin-panel/build/
+received/admin-panel/dist/
+supabase/.temp/
 # assets.zip contains a live Telegram session, downloaded private media, and a
 # plaintext environment file. It remains preserved locally but must not be published.
 assets.zip
@@ -20,6 +29,7 @@ unified-app/node_modules/
 unified-app/.npm-cache/
 unified-app/sidecar/node_modules/
 unified-app/telegram-sidecar/.venv/
+unified-app/telegram-sidecar/__pycache__/
 unified-app/telegram-sidecar/build/
 unified-app/telegram-sidecar/dist/
 unified-app/dist/

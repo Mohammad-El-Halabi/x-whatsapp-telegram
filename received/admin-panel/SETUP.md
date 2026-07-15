@@ -11,8 +11,21 @@ If no Supabase project exists, create one at `https://supabase.com`, open **SQL 
 1. `supabase/migrations/000_initial_schema.sql`
 2. `supabase/migrations/001_multi_account_support.sql`
 3. `supabase/migrations/002_paired_account_slots.sql`
+4. `supabase/migrations/003_restore_signal_sms.sql`
 
 The Supabase project is not optional in this architecture: it authenticates staff and stores the owner-controlled office, paired-account, and approved-contact rules. A project URL or API key does not grant Dashboard access; the project owner must send an invitation, or a new project must be created.
+
+The same migrations can be applied from a terminal with PostgreSQL's `psql`. Set the database connection string supplied by the project owner, then run:
+
+```powershell
+$env:SUPABASE_DB_URL = 'postgresql://...'
+Get-ChildItem .\supabase\migrations\*.sql | Sort-Object Name | ForEach-Object {
+    psql $env:SUPABASE_DB_URL -v ON_ERROR_STOP=1 -f $_.FullName
+    if ($LASTEXITCODE -ne 0) { throw "Migration failed: $($_.Name)" }
+}
+```
+
+Do not place the database password or service-role key in Git.
 
 ```bash
 # 1. Create virtual environment
@@ -44,7 +57,7 @@ The app will be available at `http://localhost:5001`
 | `SUPABASE_URL` | Your Supabase project URL |
 | `SUPABASE_ANON_KEY` | Supabase anon/public key |
 | `SUPABASE_SERVICE_KEY` | Supabase service_role key (for admin operations) |
-| `SECRET_KEY` | Flask session secret (auto-generated if empty) |
+| `SECRET_KEY` | Persistent random Flask session secret; generate a strong value for production |
 | `FLASK_DEBUG` | Set to `1` for debug mode, `0` for production |
 | `FLASK_HOST` | Bind address (default: `0.0.0.0`) |
 | `FLASK_PORT` | Port (default: `5001`) |

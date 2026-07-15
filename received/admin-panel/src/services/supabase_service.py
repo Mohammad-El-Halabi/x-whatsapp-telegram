@@ -223,11 +223,16 @@ class SupabaseService:
                 "total_assignments": len(assignments),
                 "connected_assignments": len([a for a in assignments if a.connection_status == "connected"]),
                 "total_clients": len(clients),
+                "platform_counts": {
+                    platform: len([a for a in assignments if a.platform == platform])
+                    for platform in ("telegram", "whatsapp", "signal", "sms")
+                },
             }
         except Exception:
             return {
                 "total_users": 0, "active_users": 0, "total_assignments": 0,
                 "connected_assignments": 0, "total_clients": 0,
+                "platform_counts": {"telegram": 0, "whatsapp": 0, "signal": 0, "sms": 0},
             }
 
     # ---- Office CRUD ----

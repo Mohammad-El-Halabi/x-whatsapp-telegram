@@ -135,6 +135,12 @@ def create_user():
     if not email or not password or not full_name:
         flash('All fields are required', 'error')
         return redirect(url_for('users'))
+    if role not in ['staff', 'manager', 'admin', 'superadmin']:
+        flash('Invalid user role', 'error')
+        return redirect(url_for('users'))
+    if role == 'superadmin' and not is_superadmin():
+        flash('Only a superadmin can create another superadmin', 'error')
+        return redirect(url_for('users'))
     user = supabase.create_user_with_auth(email, password, full_name, role, office_id)
     if user:
         flash('User created successfully', 'success')
@@ -148,9 +154,20 @@ def create_user():
 @admin_required
 @csrf_check
 def edit_user(user_id):
+    target = supabase.get_user_by_id(user_id)
+    if not target:
+        flash('User not found', 'error')
+        return redirect(url_for('users'))
+    requested_role = request.form.get('role', 'staff')
+    if requested_role not in ['staff', 'manager', 'admin', 'superadmin']:
+        flash('Invalid user role', 'error')
+        return redirect(url_for('users'))
+    if (target.role == 'superadmin' or requested_role == 'superadmin') and not is_superadmin():
+        flash('Only a superadmin can modify superadmin accounts', 'error')
+        return redirect(url_for('users'))
     data = {
         'full_name': request.form.get('full_name', '').strip(),
-        'role': request.form.get('role', 'staff'),
+        'role': requested_role,
         'is_active': request.form.get('is_active') == 'on',
         'office_id': request.form.get('office_id') or None
     }
@@ -171,6 +188,16 @@ def edit_user(user_id):
 @admin_required
 @csrf_check
 def delete_user(user_id):
+    target = supabase.get_user_by_id(user_id)
+    if not target:
+        flash('User not found', 'error')
+        return redirect(url_for('users'))
+    if target.role == 'superadmin' and not is_superadmin():
+        flash('Only a superadmin can delete a superadmin account', 'error')
+        return redirect(url_for('users'))
+    if user_id == session.get('user_id'):
+        flash('You cannot delete your own signed-in account', 'error')
+        return redirect(url_for('users'))
     if supabase.delete_user(user_id):
         flash('User deleted', 'success')
     else:
@@ -192,6 +219,28 @@ def assignments():
 @admin_required
 @csrf_check
 def create_assignment():
+    assignment_type = request.form.get('assignment_type', 'pair')
+    if assignment_type == 'standalone':
+        platform = request.form.get('platform', '').strip().lower()
+        data = {
+            'user_id': request.form.get('user_id'),
+            'platform': platform,
+            'phone_number': request.form.get('phone_number', '').strip(),
+            'gateway_number': request.form.get('gateway_number', '').strip(),
+            'account_slot': None,
+            'display_name': request.form.get('display_name', '').strip() or platform.capitalize(),
+            'is_active': request.form.get('is_active') == 'on'
+        }
+        if platform not in ['signal', 'sms'] or not data['user_id'] or not data['phone_number'] or not data['gateway_number']:
+            flash('Staff, Signal or SMS, phone number, and gateway are required', 'error')
+            return redirect(url_for('assignments'))
+        result = supabase.create_assignment(data)
+        if result:
+            flash(f'{platform.capitalize()} assignment created', 'success')
+        else:
+            flash(f'Failed to create {platform.capitalize()} assignment. That staff member may already have one.', 'error')
+        return redirect(url_for('assignments'))
+
     try:
         account_slot = int(request.form.get('account_slot', ''))
     except (TypeError, ValueError):
@@ -219,6 +268,27 @@ def create_assignment():
 @admin_required
 @csrf_check
 def edit_assignment(assignment_id):
+    assignment = supabase.get_assignment_by_id(assignment_id)
+    if not assignment:
+        flash('Assignment not found', 'error')
+        return redirect(url_for('assignments'))
+
+    if assignment.platform in ['signal', 'sms']:
+        data = {
+            'phone_number': request.form.get('phone_number', '').strip(),
+            'gateway_number': request.form.get('gateway_number', '').strip(),
+            'display_name': request.form.get('display_name', '').strip(),
+            'is_active': request.form.get('is_active') == 'on'
+        }
+        if not data['phone_number'] or not data['gateway_number']:
+            flash('Phone number and gateway are required', 'error')
+            return redirect(url_for('assignments'))
+        if supabase.update_assignment(assignment_id, data):
+            flash(f'{assignment.platform.capitalize()} assignment updated', 'success')
+        else:
+            flash('Failed to update assignment', 'error')
+        return redirect(url_for('assignments'))
+
     try:
         account_slot = int(request.form.get('account_slot', ''))
     except (TypeError, ValueError):
@@ -244,8 +314,16 @@ def edit_assignment(assignment_id):
 @admin_required
 @csrf_check
 def delete_assignment(assignment_id):
-    if supabase.delete_assignment_pair(assignment_id):
-        flash('Telegram and WhatsApp account pair deleted', 'success')
+    assignment = supabase.get_assignment_by_id(assignment_id)
+    if not assignment:
+        flash('Assignment not found', 'error')
+    elif assignment.platform in ['telegram', 'whatsapp'] and assignment.account_slot is not None:
+        if supabase.delete_assignment_pair(assignment_id):
+            flash('Telegram and WhatsApp account pair deleted', 'success')
+        else:
+            flash('Failed to delete assignment pair', 'error')
+    elif supabase.delete_assignment(assignment_id):
+        flash(f'{assignment.platform.capitalize()} assignment deleted', 'success')
     else:
         flash('Failed to delete assignment', 'error')
     return redirect(url_for('assignments'))
@@ -265,15 +343,18 @@ def clients():
 @admin_required
 @csrf_check
 def create_client():
+    platforms = list(dict.fromkeys(request.form.getlist('platforms')))
     data = {
         'masked_identity': request.form.get('masked_identity', '').strip(),
         'real_identifier': request.form.get('real_identifier', '').strip(),
         'office_id': request.form.get('office_id') or None,
         'gateway_number': request.form.get('gateway_number', 'default').strip(),
-        'platforms': request.form.getlist('platforms'),
+        'platforms': platforms,
         'platform_identifiers': {
             'telegram': request.form.get('telegram_identifier', '').strip(),
-            'whatsapp': request.form.get('whatsapp_identifier', '').strip()
+            'whatsapp': request.form.get('whatsapp_identifier', '').strip(),
+            'signal': request.form.get('signal_identifier', '').strip(),
+            'sms': request.form.get('sms_identifier', '').strip()
         }
     }
     if not data['masked_identity'] or not data['real_identifier']:
@@ -281,6 +362,9 @@ def create_client():
         return redirect(url_for('clients'))
     if not data['platforms']:
         flash('Select at least one approved platform', 'error')
+        return redirect(url_for('clients'))
+    if any(platform not in ['telegram', 'whatsapp', 'signal', 'sms'] for platform in data['platforms']):
+        flash('Invalid approved platform', 'error')
         return redirect(url_for('clients'))
     result = supabase.create_client(data)
     if result:
@@ -294,19 +378,25 @@ def create_client():
 @admin_required
 @csrf_check
 def edit_client(client_id):
+    platforms = list(dict.fromkeys(request.form.getlist('platforms')))
     data = {
         'masked_identity': request.form.get('masked_identity', '').strip(),
         'real_identifier': request.form.get('real_identifier', '').strip(),
         'office_id': request.form.get('office_id') or None,
         'gateway_number': request.form.get('gateway_number', 'default').strip(),
-        'platforms': request.form.getlist('platforms'),
+        'platforms': platforms,
         'platform_identifiers': {
             'telegram': request.form.get('telegram_identifier', '').strip(),
-            'whatsapp': request.form.get('whatsapp_identifier', '').strip()
+            'whatsapp': request.form.get('whatsapp_identifier', '').strip(),
+            'signal': request.form.get('signal_identifier', '').strip(),
+            'sms': request.form.get('sms_identifier', '').strip()
         }
     }
     if not data['platforms']:
         flash('Select at least one approved platform', 'error')
+        return redirect(url_for('clients'))
+    if any(platform not in ['telegram', 'whatsapp', 'signal', 'sms'] for platform in data['platforms']):
+        flash('Invalid approved platform', 'error')
         return redirect(url_for('clients'))
     if supabase.update_client(client_id, data):
         flash('Client updated', 'success')

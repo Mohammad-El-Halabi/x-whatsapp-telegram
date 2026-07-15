@@ -1,5 +1,5 @@
 -- Complete bootstrap for a new Supabase project.
--- Run this first in the Supabase SQL editor, then run 001 and 002.
+-- Run this first in the Supabase SQL editor, then run 001, 002, and 003.
 
 create extension if not exists pgcrypto;
 
@@ -17,7 +17,7 @@ create table if not exists public.users (
     id uuid primary key references auth.users(id) on delete cascade,
     email text not null unique,
     full_name text not null,
-    role text not null default 'staff' check (role in ('staff', 'admin', 'superadmin')),
+    role text not null default 'staff' check (role in ('staff', 'manager', 'admin', 'superadmin')),
     office_id uuid references public.offices(id) on delete set null,
     is_active boolean not null default true,
     created_at timestamptz not null default now(),
@@ -28,7 +28,7 @@ create table if not exists public.staff_assignments (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references public.users(id) on delete cascade,
     office_id uuid references public.offices(id) on delete set null,
-    platform text not null check (lower(platform) in ('telegram', 'whatsapp')),
+    platform text not null check (lower(platform) in ('telegram', 'whatsapp', 'signal', 'sms')),
     phone_number text not null,
     gateway_number text not null default 'default',
     account_slot smallint check (account_slot is null or account_slot between 1 and 3),
